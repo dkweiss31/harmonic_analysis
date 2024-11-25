@@ -9,6 +9,7 @@ class HarmonicAnalysis(ABC):
     def __init__(self, num_modes, mode_dim):
         self.num_modes = num_modes
         self.mode_dim = mode_dim
+        self.dim_list = self.num_modes * [self.mode_dim]
         self.Phi0 = 0.5  # units where e_charge, hbar = 1; Phi0 = hbar / (2 * e)
         self.Z0 = 0.25  # units where e and hbar = 1; Z0 = hbar / (2 * e)**2
 
@@ -71,8 +72,7 @@ class HarmonicAnalysis(ABC):
         """
         if self.num_modes == 1:
             return dq.destroy(self.mode_dim)
-        dim_list = self.num_modes * [self.mode_dim]
-        return np.asarray(dq.destroy(*dim_list)[mode_index])
+        return np.asarray(dq.destroy(*self.dim_list)[mode_index])
 
     def n_j(self, node_index: int) -> ndarray:
         Xi = self.Xi_matrix()
@@ -111,6 +111,20 @@ class HarmonicAnalysis(ABC):
         evals = evals[ordered_evals_indices]
         evecs = evecs[:, ordered_evals_indices]
         return evals, evecs
+
+    def bare_labels(self):
+        return list(np.ndindex(*self.dim_list))
+
+    def get_bare_indices(self, evecs: ndarray):
+        """Get bare labels of the eigenvectors evecs.
+
+        Assumption is that `evecs` are column vectors as returned by `eigensys` and
+        `eigh`
+        """
+        bare_states = np.asarray(dq.basis(self.dim_list, self.bare_labels()))
+        overlaps = np.einsum("ji,bjd->ib", evecs, bare_states)
+        max_idxs = np.argmax(np.abs(overlaps), axis=1).astype(int)
+        return np.array(self.bare_labels())[max_idxs]
 
 
 class Transmon(HarmonicAnalysis):
