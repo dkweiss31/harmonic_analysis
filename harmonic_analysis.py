@@ -115,16 +115,23 @@ class HarmonicAnalysis(ABC):
     def bare_labels(self):
         return list(np.ndindex(*self.dim_list))
 
+    def _overlaps(self, evecs, bare_indices):
+        bare_states = np.asarray(dq.basis(self.dim_list, bare_indices))
+        return np.einsum("ji,bjd->ib", evecs, bare_states)
+
     def get_bare_indices(self, evecs: ndarray):
         """Get bare labels of the eigenvectors evecs.
 
         Assumption is that `evecs` are column vectors as returned by `eigensys` and
         `eigh`
         """
-        bare_states = np.asarray(dq.basis(self.dim_list, self.bare_labels()))
-        overlaps = np.einsum("ji,bjd->ib", evecs, bare_states)
+        overlaps = self._overlaps(evecs, self.bare_labels())
         max_idxs = np.argmax(np.abs(overlaps), axis=1).astype(int)
         return np.array(self.bare_labels())[max_idxs]
+
+    def get_dressed_indices(self, evecs: ndarray, bare_indices: ndarray):
+        overlaps = self._overlaps(evecs, bare_indices)
+        return np.argmax(np.abs(overlaps), axis=0).astype(int)
 
 
 class Transmon(HarmonicAnalysis):
