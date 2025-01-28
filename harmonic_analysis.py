@@ -10,8 +10,9 @@ class HarmonicAnalysis(ABC):
         self.num_modes = num_modes
         self.mode_dim = mode_dim
         self.dim_list = self.num_modes * [self.mode_dim]
-        self.Phi0 = 0.5  # units where e_charge, hbar = 1; Phi0 = hbar / (2 * e)
-        self.Z0 = 0.25  # units where e and hbar = 1; Z0 = hbar / (2 * e)**2
+        # units where e = hbar = 1
+        self.Phi0 = 0.5  # Phi0 = hbar / (2 * e)
+        self.Z0 = 0.25  # Z0 = hbar / (2 * e)**2
 
     @abstractmethod
     def gamma_matrix(self) -> ndarray:
@@ -52,14 +53,8 @@ class HarmonicAnalysis(ABC):
         inductance matrices by a congruence transformation.
         """
         omega_squared_array, eigenvectors = self.eigensystem_normal_modes()
-        return np.array(
-            [
-                eigenvectors[:, i]
-                * omega_squared ** (-1 / 4)
-                * np.sqrt(1.0 / self.Z0)
-                for i, omega_squared in enumerate(omega_squared_array)
-            ]
-        ).T
+        normalization_factors = omega_squared_array ** (-1 / 4) / np.sqrt(self.Z0)
+        return eigenvectors * normalization_factors
 
     def a_operator(self, mode_index: int) -> ndarray:
         """Returns the lowering operator associated
@@ -75,6 +70,7 @@ class HarmonicAnalysis(ABC):
         return np.asarray(dq.destroy(*self.dim_list)[mode_index])
 
     def n_j(self, node_index: int) -> ndarray:
+        """Charge number operator of a node, expressed in the mode basis."""
         Xi = self.Xi_matrix()
         Xi_inv_T = sp.linalg.inv(Xi).T
         a_ops = [self.a_operator(mode_index) for mode_index in range(self.num_modes)]
@@ -82,15 +78,18 @@ class HarmonicAnalysis(ABC):
         return np.einsum("i,ijk->jk", Xi_inv_T[node_index], -1j * a_minus_a_dag) / np.sqrt(2)
 
     def phi_j(self, node_index: int) -> ndarray:
+        """Position/phase operator of a node, expressed in the mode basis."""
         Xi = self.Xi_matrix()
         a_ops = [self.a_operator(mode_index) for mode_index in range(self.num_modes)]
         a_plus_a_dag = np.stack([a + a.T for a in a_ops])
         return np.einsum("i,ijk->jk", Xi[node_index], a_plus_a_dag) / np.sqrt(2)
 
     def exp_i_phi_j(self, node_index) -> ndarray:
+        r"""$\exp(i\phi_{j})$ operator expressed in the mode basis."""
         return sp.linalg.expm(1j * self.phi_j(node_index))
 
     def kinetic_matrix(self) -> ndarray:
+        """Kinetic energy matrix."""
         EC_mat = self.EC_matrix()
         n_ops = np.stack([self.n_j(node_index) for node_index in range(self.num_modes)])
         return np.einsum("imn,ij,jnl->ml", n_ops, 4.0 * EC_mat, n_ops)

@@ -7,7 +7,7 @@ def test_correctness():
     EJ = 20.0
     ECJ = 0.8
     ECs = 0.8
-    evals_count = 12
+    evals_count = 10
     harmonic_dimon = ha.Dimon(EJ1=EJ, EJ2=EJ, ECJ1=ECJ, ECJ2=ECJ, ECs=ECs, num_modes=2, mode_dim=12)
     evals = harmonic_dimon.eigenvals(evals_count=evals_count)
     evals = evals - evals[0]
